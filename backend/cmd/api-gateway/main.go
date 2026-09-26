@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/udaykishore-resu/travelmind/internal/config"
 	"github.com/udaykishore-resu/travelmind/internal/db"
 	"github.com/udaykishore-resu/travelmind/internal/handlers"
 	"github.com/udaykishore-resu/travelmind/internal/middleware"
 	"github.com/udaykishore-resu/travelmind/internal/observability"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -28,188 +28,163 @@ func main() {
 
 	// Initialize logger
 	logger := observability.NewLogger(cfg.LogLevel)
-	logger.WithFields(logrus.Fields{
-		"environment": cfg.Environment,
-		"version":     cfg.Version,
-	}).Info("TravelMind API Gateway starting")
 
-	// Initialize observability (tracing, metrics)
-	tracer, err := observability.InitTracer(cfg)
+	// Initialize tracer
+	tracer, err := observability.InitTracer(cfg.Environment)
 	if err != nil {
-		logger.WithError(err).Fatal("Failed to initialize tracer")
+		logger.Fatalf("Failed to initialize tracer: %v", err)
 	}
-	defer tracer.Shutdown(context.Background())
 
-	metricsServer := observability.InitMetrics()
-	go func() {
-		if err := http.ListenAndServe(":9090", metricsServer); err != nil && err != http.ErrServerClosed {
-			logger.WithError(err).Error("Metrics server failed")
-		}
-	}()
+	// Initialize metrics
+	metrics := observability.InitMetrics()
 
-	// Initialize database connections
-	pgDB, err := db.NewPostgresConnection(cfg.Database.PostgresURL)
+	// Initialize database
+	pgDB, err := db.NewPostgresConnection(cfg.Database.URL)
 	if err != nil {
-		logger.WithError(err).Fatal("Failed to connect to PostgreSQL")
+		logger.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer pgDB.Close()
 
-	redisClient := db.NewRedisConnection(cfg.Redis.URL)
+	// Initialize Redis
+	redisClient := db.NewRedisClient(cfg.Redis.URL)
 	defer redisClient.Close()
 
-	// Health checks
-	if err := pgDB.Ping(context.Background()); err != nil {
-		logger.WithError(err).Fatal("PostgreSQL health check failed")
-	}
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
-		logger.WithError(err).Fatal("Redis health check failed")
-	}
-
-	logger.Info("Database connections established")
-
 	// Initialize Gin router
-	if cfg.Environment == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
+	router := gin.Default()
 
-	router := gin.New()
+	// Apply middleware
+	router.Use(middleware.RequestLogger(logger))
+	router.Use(middleware.TraceID())
+	router.Use(middleware.CORS())
+	router.Use(middleware.SecurityHeaders())
+	router.Use(middleware.RateLimiter())
+	router.Use(middleware.ErrorHandling())
+	router.Use(middleware.Recovery(logger))
 
-	// Apply global middleware
-	router.Use(
-		gin.Recovery(),
-		middleware.RequestLogger(logger),
-		middleware.TraceID(),
-		middleware.CORS(cfg),
-		middleware.SecurityHeaders(),
-	)
-
-	// Health check endpoints (no auth required)
-	router.GET("/health", handlers.HealthCheck(pgDB, redisClient))
-	router.GET("/ready", handlers.ReadinessCheck(pgDB, redisClient))
-	router.GET("/metrics", func(c *gin.Context) {
-		c.String(http.StatusOK, "Metrics available at :9090/metrics")
+	// Health check endpoints
+	router.GET("/health", func(c *gin.Context) {
+		handlers.HealthCheck(c, pgDB, redisClient)
+	})
+	router.GET("/ready", func(c *gin.Context) {
+		handlers.ReadinessCheck(c, pgDB, redisClient)
 	})
 
-	// API Documentation
-	router.GET("/swagger", handlers.SwaggerUI())
-	router.StaticFile("/swagger.yaml", "./docs/swagger.yaml")
-
-	// Public routes (no authentication)
-	public := router.Group("/api/v1")
+	// API v1 routes
+	v1 := router.Group("/api/v1")
 	{
-		public.POST("/auth/login", handlers.Login())
-		public.POST("/auth/signup", handlers.Signup(pgDB))
-		public.POST("/auth/refresh", handlers.RefreshToken())
-	}
+		// Auth endpoints
+		v1.POST("/auth/register", handlers.Register)
+		v1.POST("/auth/login", handlers.Login)
+		v1.POST("/auth/refresh", handlers.RefreshToken)
+		v1.POST("/auth/logout", middleware.AuthRequired(), handlers.Logout)
 
-	// Protected routes (JWT authentication required)
-	protected := router.Group("/api/v1")
-	protected.Use(middleware.AuthRequired())
-	{
 		// Traveler endpoints
-		travelers := protected.Group("/travelers")
+		travelerGroup := v1.Group("/travelers")
+		travelerGroup.Use(middleware.AuthRequired())
 		{
-			travelers.GET("/:id", handlers.GetTraveler(pgDB))
-			travelers.PUT("/:id", handlers.UpdateTraveler(pgDB))
-			travelers.GET("/:id/bookings", handlers.GetTravelerBookings(pgDB))
-			travelers.GET("/:id/preferences", handlers.GetTravelerPreferences(pgDB))
-			travelers.PUT("/:id/preferences", handlers.UpdateTravelerPreferences(pgDB))
+			travelerGroup.GET("/:id", handlers.GetTraveler)
+			travelerGroup.PUT("/:id", handlers.UpdateTraveler)
+			travelerGroup.GET("/:id/preferences", handlers.GetTravelerPreferences)
+			travelerGroup.PUT("/:id/preferences", handlers.UpdateTravelerPreferences)
 		}
 
 		// Booking endpoints
-		bookings := protected.Group("/bookings")
+		bookingGroup := v1.Group("/bookings")
+		bookingGroup.Use(middleware.AuthRequired())
 		{
-			bookings.POST("", handlers.CreateBooking(pgDB, redisClient))
-			bookings.GET("/:id", handlers.GetBooking(pgDB))
-			bookings.PUT("/:id", handlers.UpdateBooking(pgDB))
-			bookings.POST("/:id/confirm", handlers.ConfirmBooking(pgDB))
-			bookings.POST("/:id/cancel", handlers.CancelBooking(pgDB))
-			bookings.GET("/:id/items", handlers.GetBookingItems(pgDB))
+			bookingGroup.POST("", handlers.CreateBooking)
+			bookingGroup.GET("/:id", handlers.GetBooking)
+			bookingGroup.PUT("/:id", handlers.UpdateBooking)
+			bookingGroup.DELETE("/:id", handlers.CancelBooking)
+			bookingGroup.GET("", handlers.ListBookings)
+			bookingGroup.POST("/:id/confirm", handlers.ConfirmBooking)
+			bookingGroup.POST("/:id/pay", handlers.ProcessPayment)
 		}
 
 		// Supplier endpoints
-		suppliers := protected.Group("/suppliers")
+		supplierGroup := v1.Group("/suppliers")
 		{
-			suppliers.GET("", handlers.ListSuppliers(pgDB))
-			suppliers.GET("/:id", handlers.GetSupplier(pgDB))
-			suppliers.POST("/:id/rates", handlers.GetSupplierRates(pgDB, redisClient))
+			supplierGroup.GET("", handlers.ListSuppliers)
+			supplierGroup.GET("/:id/rates", handlers.GetSupplierRates)
+			supplierGroup.GET("/:id/availability", handlers.CheckSupplierAvailability)
 		}
 
 		// Search endpoints
-		search := protected.Group("/search")
+		searchGroup := v1.Group("/search")
 		{
-			search.POST("/flights", handlers.SearchFlights(pgDB, redisClient))
-			search.POST("/hotels", handlers.SearchHotels(pgDB, redisClient))
-			search.POST("/activities", handlers.SearchActivities(pgDB, redisClient))
+			searchGroup.GET("/flights", handlers.SearchFlights)
+			searchGroup.GET("/hotels", handlers.SearchHotels)
+			searchGroup.GET("/activities", handlers.SearchActivities)
 		}
 
-		// AI Agent endpoints
-		ai := protected.Group("/ai")
+		// AI endpoints
+		aiGroup := v1.Group("/ai")
+		aiGroup.Use(middleware.AuthRequired())
 		{
-			ai.POST("/chat", handlers.ChatWithAgent())
-			ai.POST("/recommend", handlers.GetRecommendations(pgDB))
-			ai.POST("/risk-assess", handlers.AssessBookingRisk(pgDB))
+			aiGroup.POST("/chat", handlers.AIChat)
+			aiGroup.POST("/recommendations", handlers.GetRecommendations)
+			aiGroup.POST("/risk-assessment", handlers.RiskAssessment)
 		}
 
-		// Advisor endpoints (RBAC: advisor_role or higher)
-		advisors := protected.Group("/advisors")
-		advisors.Use(middleware.RoleRequired("advisor"))
+		// Advisor endpoints
+		advisorGroup := v1.Group("/advisors")
+		advisorGroup.Use(middleware.AuthRequired())
 		{
-			advisors.GET("/dashboard", handlers.AdvisorDashboard(pgDB))
-			advisors.GET("/clients", handlers.ListAdvisorClients(pgDB))
-			advisors.GET("/:id/performance", handlers.GetAdvisorPerformance(pgDB))
-			advisors.POST("/bookings/:id/override", handlers.OverrideFraudBlock(pgDB))
+			advisorGroup.GET("/:id", handlers.GetAdvisor)
+			advisorGroup.PUT("/:id", handlers.UpdateAdvisor)
+			advisorGroup.GET("/:id/bookings", handlers.GetAdvisorBookings)
+			advisorGroup.GET("/:id/performance", handlers.GetAdvisorPerformance)
 		}
 
-		// Admin endpoints (RBAC: admin_role only)
-		admin := protected.Group("/admin")
-		admin.Use(middleware.RoleRequired("admin"))
+		// Admin endpoints
+		adminGroup := v1.Group("/admin")
+		adminGroup.Use(middleware.AuthRequired())
+		adminGroup.Use(middleware.RoleRequired("admin"))
 		{
-			admin.GET("/users", handlers.ListUsers(pgDB))
-			admin.POST("/users/:id/role", handlers.UpdateUserRole(pgDB))
-			admin.GET("/audit-logs", handlers.GetAuditLogs(pgDB))
-			admin.GET("/system-health", handlers.SystemHealth(pgDB, redisClient))
+			adminGroup.GET("/users", handlers.ListUsers)
+			adminGroup.GET("/bookings/analytics", handlers.GetBookingAnalytics)
+			adminGroup.GET("/fraud/alerts", handlers.ListFraudAlerts)
+			adminGroup.POST("/fraud/alerts/:id/resolve", handlers.ResolveFraudAlert)
 		}
 	}
 
-	// 404 handler
-	router.NoRoute(func(c *gin.Context) {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "Route not found",
-			"path":  c.Request.URL.Path,
-		})
-	})
+	// Swagger/OpenAPI endpoint
+	router.GET("/swagger", handlers.SwaggerUI)
 
-	// Create HTTP server with timeouts
+	// Start server
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
+		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
+	// Start server in goroutine
 	go func() {
-		logger.WithField("port", cfg.Server.Port).Info("API Gateway listening")
+		logger.Infof("Starting API server on %s", srv.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.WithError(err).Fatal("Server error")
+			logger.Fatalf("Server error: %v", err)
 		}
 	}()
 
 	// Wait for interrupt signal
-	<-quit
-	logger.Info("Shutting down gracefully...")
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Graceful shutdown
+	logger.Info("Shutting down server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.WithError(err).Error("Server forced shutdown")
+		logger.Errorf("Server shutdown error: %v", err)
 	}
 
-	logger.Info("Server exited successfully")
+	// Cleanup
+	tracer.Shutdown(ctx)
+	metrics.Shutdown(ctx)
+
+	logger.Info("Server stopped")
 }
