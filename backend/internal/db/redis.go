@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -45,8 +46,7 @@ func (r *RedisHelper) GetJSON(ctx context.Context, key string, result interface{
 	if err != nil {
 		return err
 	}
-	// Unmarshal implementation would depend on your JSON library
-	return nil
+	return json.Unmarshal([]byte(val), result)
 }
 
 // Delete deletes a key from Redis

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 	"github.com/udaykishore-resu/travelmind/internal/config"
 	"github.com/udaykishore-resu/travelmind/internal/db"
 	"github.com/udaykishore-resu/travelmind/internal/handlers"
@@ -39,14 +38,14 @@ func main() {
 	metrics := observability.InitMetrics()
 
 	// Initialize database
-	pgDB, err := db.NewPostgresConnection(cfg.Database.URL)
+	pgDB, err := db.NewPostgresConnection(cfg.Database.PostgresURL)
 	if err != nil {
 		logger.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer pgDB.Close()
 
 	// Initialize Redis
-	redisClient := db.NewRedisClient(cfg.Redis.URL)
+	redisClient := db.NewRedisConnection(cfg.Redis.URL)
 	defer redisClient.Close()
 
 	// Initialize Gin router
@@ -62,78 +61,76 @@ func main() {
 	router.Use(middleware.Recovery(logger))
 
 	// Health check endpoints
-	router.GET("/health", func(c *gin.Context) {
-		handlers.HealthCheck(c, pgDB, redisClient)
-	})
-	router.GET("/ready", func(c *gin.Context) {
-		handlers.ReadinessCheck(c, pgDB, redisClient)
-	})
+	router.GET("/health", handlers.HealthCheck(pgDB, redisClient))
+	router.GET("/ready", handlers.ReadinessCheck(pgDB, redisClient))
+	router.GET("/metrics", gin.WrapH(metrics.Handler()))
 
 	// API v1 routes
+	h := handlers.New(pgDB, redisClient)
 	v1 := router.Group("/api/v1")
 	{
 		// Auth endpoints
-		v1.POST("/auth/register", handlers.Register)
-		v1.POST("/auth/login", handlers.Login)
-		v1.POST("/auth/refresh", handlers.RefreshToken)
-		v1.POST("/auth/logout", middleware.AuthRequired(), handlers.Logout)
+		v1.POST("/auth/register", h.Register)
+		v1.POST("/auth/login", h.Login)
+		v1.POST("/auth/refresh", h.RefreshToken)
+		v1.POST("/auth/logout", middleware.AuthRequired(), h.Logout)
 
 		// Traveler endpoints
 		travelerGroup := v1.Group("/travelers")
 		travelerGroup.Use(middleware.AuthRequired())
 		{
-			travelerGroup.GET("/:id", handlers.GetTraveler)
-			travelerGroup.PUT("/:id", handlers.UpdateTraveler)
-			travelerGroup.GET("/:id/preferences", handlers.GetTravelerPreferences)
-			travelerGroup.PUT("/:id/preferences", handlers.UpdateTravelerPreferences)
+			travelerGroup.GET("/:id", h.GetTraveler)
+			travelerGroup.PUT("/:id", h.UpdateTraveler)
+			travelerGroup.GET("/:id/preferences", h.GetTravelerPreferences)
+			travelerGroup.PUT("/:id/preferences", h.UpdateTravelerPreferences)
 		}
 
 		// Booking endpoints
 		bookingGroup := v1.Group("/bookings")
 		bookingGroup.Use(middleware.AuthRequired())
 		{
-			bookingGroup.POST("", handlers.CreateBooking)
-			bookingGroup.GET("/:id", handlers.GetBooking)
-			bookingGroup.PUT("/:id", handlers.UpdateBooking)
-			bookingGroup.DELETE("/:id", handlers.CancelBooking)
-			bookingGroup.GET("", handlers.ListBookings)
-			bookingGroup.POST("/:id/confirm", handlers.ConfirmBooking)
-			bookingGroup.POST("/:id/pay", handlers.ProcessPayment)
+			bookingGroup.POST("", h.CreateBooking)
+			bookingGroup.GET("/:id", h.GetBooking)
+			bookingGroup.PUT("/:id", h.UpdateBooking)
+			bookingGroup.DELETE("/:id", h.CancelBooking)
+			bookingGroup.GET("", h.ListBookings)
+			bookingGroup.POST("/:id/confirm", h.ConfirmBooking)
+			bookingGroup.POST("/:id/pay", h.ProcessPayment)
 		}
 
 		// Supplier endpoints
 		supplierGroup := v1.Group("/suppliers")
 		{
-			supplierGroup.GET("", handlers.ListSuppliers)
-			supplierGroup.GET("/:id/rates", handlers.GetSupplierRates)
-			supplierGroup.GET("/:id/availability", handlers.CheckSupplierAvailability)
+			supplierGroup.GET("", h.ListSuppliers)
+			supplierGroup.GET("/:id/rates", h.GetSupplierRates)
+			supplierGroup.GET("/:id/availability", h.CheckSupplierAvailability)
 		}
 
 		// Search endpoints
 		searchGroup := v1.Group("/search")
 		{
-			searchGroup.GET("/flights", handlers.SearchFlights)
-			searchGroup.GET("/hotels", handlers.SearchHotels)
-			searchGroup.GET("/activities", handlers.SearchActivities)
+			searchGroup.GET("/flights", h.SearchFlights)
+			searchGroup.GET("/hotels", h.SearchHotels)
+			searchGroup.GET("/activities", h.SearchActivities)
 		}
 
 		// AI endpoints
 		aiGroup := v1.Group("/ai")
 		aiGroup.Use(middleware.AuthRequired())
 		{
-			aiGroup.POST("/chat", handlers.AIChat)
-			aiGroup.POST("/recommendations", handlers.GetRecommendations)
-			aiGroup.POST("/risk-assessment", handlers.RiskAssessment)
+			aiGroup.POST("/chat", h.AIChat)
+			aiGroup.POST("/recommendations", h.GetRecommendations)
+			aiGroup.POST("/risk-assessment", h.RiskAssessment)
 		}
 
 		// Advisor endpoints
 		advisorGroup := v1.Group("/advisors")
 		advisorGroup.Use(middleware.AuthRequired())
 		{
-			advisorGroup.GET("/:id", handlers.GetAdvisor)
-			advisorGroup.PUT("/:id", handlers.UpdateAdvisor)
-			advisorGroup.GET("/:id/bookings", handlers.GetAdvisorBookings)
-			advisorGroup.GET("/:id/performance", handlers.GetAdvisorPerformance)
+			advisorGroup.GET("/:id", h.GetAdvisor)
+			advisorGroup.PUT("/:id", h.UpdateAdvisor)
+			advisorGroup.GET("/:id/bookings", h.GetAdvisorBookings)
+			advisorGroup.GET("/:id/performance", h.GetAdvisorPerformance)
 		}
 
 		// Admin endpoints
@@ -141,15 +138,15 @@ func main() {
 		adminGroup.Use(middleware.AuthRequired())
 		adminGroup.Use(middleware.RoleRequired("admin"))
 		{
-			adminGroup.GET("/users", handlers.ListUsers)
-			adminGroup.GET("/bookings/analytics", handlers.GetBookingAnalytics)
-			adminGroup.GET("/fraud/alerts", handlers.ListFraudAlerts)
-			adminGroup.POST("/fraud/alerts/:id/resolve", handlers.ResolveFraudAlert)
+			adminGroup.GET("/users", h.ListUsers)
+			adminGroup.GET("/bookings/analytics", h.GetBookingAnalytics)
+			adminGroup.GET("/fraud/alerts", h.ListFraudAlerts)
+			adminGroup.POST("/fraud/alerts/:id/resolve", h.ResolveFraudAlert)
 		}
 	}
 
 	// Swagger/OpenAPI endpoint
-	router.GET("/swagger", handlers.SwaggerUI)
+	router.GET("/swagger", handlers.SwaggerUI())
 
 	// Start server
 	srv := &http.Server{

@@ -8,209 +8,88 @@ import (
 	"github.com/udaykishore-resu/travelmind/internal/db"
 )
 
-// TODO: Implement all handlers following this pattern
+// Handler holds the shared dependencies for all API v1 endpoints.
+type Handler struct {
+	pg    *db.PostgresDB
+	redis *redis.Client
+}
 
-// Authentication handlers
+// New creates a Handler wired to the given data stores.
+func New(pg *db.PostgresDB, redisClient *redis.Client) *Handler {
+	return &Handler{pg: pg, redis: redisClient}
+}
 
-// Login handles user login
-func Login() gin.HandlerFunc {
+// notImplemented responds with 501 so clients and tests can tell a stubbed
+// endpoint apart from a working one.
+func notImplemented(name string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Login implementation pending"})
+		c.JSON(http.StatusNotImplemented, gin.H{
+			"error":    "not implemented",
+			"endpoint": name,
+		})
 	}
 }
 
-// Signup handles user registration
-func Signup(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "Signup implementation pending"})
-	}
+// Auth
+
+func (h *Handler) Register(c *gin.Context)     { notImplemented("Register")(c) }
+func (h *Handler) Login(c *gin.Context)        { notImplemented("Login")(c) }
+func (h *Handler) RefreshToken(c *gin.Context) { notImplemented("RefreshToken")(c) }
+func (h *Handler) Logout(c *gin.Context)       { notImplemented("Logout")(c) }
+
+// Travelers
+
+func (h *Handler) GetTraveler(c *gin.Context)    { notImplemented("GetTraveler")(c) }
+func (h *Handler) UpdateTraveler(c *gin.Context) { notImplemented("UpdateTraveler")(c) }
+func (h *Handler) GetTravelerPreferences(c *gin.Context) {
+	notImplemented("GetTravelerPreferences")(c)
+}
+func (h *Handler) UpdateTravelerPreferences(c *gin.Context) {
+	notImplemented("UpdateTravelerPreferences")(c)
 }
 
-// RefreshToken refreshes JWT token
-func RefreshToken() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "RefreshToken implementation pending"})
-	}
+// Bookings
+
+func (h *Handler) CreateBooking(c *gin.Context)  { notImplemented("CreateBooking")(c) }
+func (h *Handler) GetBooking(c *gin.Context)     { notImplemented("GetBooking")(c) }
+func (h *Handler) UpdateBooking(c *gin.Context)  { notImplemented("UpdateBooking")(c) }
+func (h *Handler) CancelBooking(c *gin.Context)  { notImplemented("CancelBooking")(c) }
+func (h *Handler) ListBookings(c *gin.Context)   { notImplemented("ListBookings")(c) }
+func (h *Handler) ConfirmBooking(c *gin.Context) { notImplemented("ConfirmBooking")(c) }
+func (h *Handler) ProcessPayment(c *gin.Context) { notImplemented("ProcessPayment")(c) }
+
+// Suppliers
+
+func (h *Handler) ListSuppliers(c *gin.Context)    { notImplemented("ListSuppliers")(c) }
+func (h *Handler) GetSupplierRates(c *gin.Context) { notImplemented("GetSupplierRates")(c) }
+func (h *Handler) CheckSupplierAvailability(c *gin.Context) {
+	notImplemented("CheckSupplierAvailability")(c)
 }
 
-// Traveler handlers
+// Search
 
-func GetTraveler(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetTraveler implementation pending"})
-	}
+func (h *Handler) SearchFlights(c *gin.Context)    { notImplemented("SearchFlights")(c) }
+func (h *Handler) SearchHotels(c *gin.Context)     { notImplemented("SearchHotels")(c) }
+func (h *Handler) SearchActivities(c *gin.Context) { notImplemented("SearchActivities")(c) }
+
+// AI
+
+func (h *Handler) AIChat(c *gin.Context)             { notImplemented("AIChat")(c) }
+func (h *Handler) GetRecommendations(c *gin.Context) { notImplemented("GetRecommendations")(c) }
+func (h *Handler) RiskAssessment(c *gin.Context)     { notImplemented("RiskAssessment")(c) }
+
+// Advisors
+
+func (h *Handler) GetAdvisor(c *gin.Context)         { notImplemented("GetAdvisor")(c) }
+func (h *Handler) UpdateAdvisor(c *gin.Context)      { notImplemented("UpdateAdvisor")(c) }
+func (h *Handler) GetAdvisorBookings(c *gin.Context) { notImplemented("GetAdvisorBookings")(c) }
+func (h *Handler) GetAdvisorPerformance(c *gin.Context) {
+	notImplemented("GetAdvisorPerformance")(c)
 }
 
-func UpdateTraveler(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "UpdateTraveler implementation pending"})
-	}
-}
+// Admin
 
-func GetTravelerBookings(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetTravelerBookings implementation pending"})
-	}
-}
-
-func GetTravelerPreferences(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetTravelerPreferences implementation pending"})
-	}
-}
-
-func UpdateTravelerPreferences(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "UpdateTravelerPreferences implementation pending"})
-	}
-}
-
-// Booking handlers
-
-func CreateBooking(pgDB *db.PostgresDB, redisClient *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "CreateBooking implementation pending"})
-	}
-}
-
-func GetBooking(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetBooking implementation pending"})
-	}
-}
-
-func UpdateBooking(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "UpdateBooking implementation pending"})
-	}
-}
-
-func ConfirmBooking(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "ConfirmBooking implementation pending"})
-	}
-}
-
-func CancelBooking(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "CancelBooking implementation pending"})
-	}
-}
-
-func GetBookingItems(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetBookingItems implementation pending"})
-	}
-}
-
-// Supplier handlers
-
-func ListSuppliers(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "ListSuppliers implementation pending"})
-	}
-}
-
-func GetSupplier(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetSupplier implementation pending"})
-	}
-}
-
-func GetSupplierRates(pgDB *db.PostgresDB, redisClient *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetSupplierRates implementation pending"})
-	}
-}
-
-// Search handlers
-
-func SearchFlights(pgDB *db.PostgresDB, redisClient *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "SearchFlights implementation pending"})
-	}
-}
-
-func SearchHotels(pgDB *db.PostgresDB, redisClient *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "SearchHotels implementation pending"})
-	}
-}
-
-func SearchActivities(pgDB *db.PostgresDB, redisClient *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "SearchActivities implementation pending"})
-	}
-}
-
-// AI handlers
-
-func ChatWithAgent() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "ChatWithAgent implementation pending"})
-	}
-}
-
-func GetRecommendations(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetRecommendations implementation pending"})
-	}
-}
-
-func AssessBookingRisk(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "AssessBookingRisk implementation pending"})
-	}
-}
-
-// Advisor handlers
-
-func AdvisorDashboard(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "AdvisorDashboard implementation pending"})
-	}
-}
-
-func ListAdvisorClients(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "ListAdvisorClients implementation pending"})
-	}
-}
-
-func GetAdvisorPerformance(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetAdvisorPerformance implementation pending"})
-	}
-}
-
-func OverrideFraudBlock(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "OverrideFraudBlock implementation pending"})
-	}
-}
-
-// Admin handlers
-
-func ListUsers(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "ListUsers implementation pending"})
-	}
-}
-
-func UpdateUserRole(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "UpdateUserRole implementation pending"})
-	}
-}
-
-func GetAuditLogs(pgDB *db.PostgresDB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "GetAuditLogs implementation pending"})
-	}
-}
-
-func SystemHealth(pgDB *db.PostgresDB, redisClient *redis.Client) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "SystemHealth implementation pending"})
-	}
-}
+func (h *Handler) ListUsers(c *gin.Context)           { notImplemented("ListUsers")(c) }
+func (h *Handler) GetBookingAnalytics(c *gin.Context) { notImplemented("GetBookingAnalytics")(c) }
+func (h *Handler) ListFraudAlerts(c *gin.Context)     { notImplemented("ListFraudAlerts")(c) }
+func (h *Handler) ResolveFraudAlert(c *gin.Context)   { notImplemented("ResolveFraudAlert")(c) }

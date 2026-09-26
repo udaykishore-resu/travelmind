@@ -3,11 +3,11 @@ package observability
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
-	"github.com/udaykishore-resu/travelmind/internal/config"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -56,7 +56,8 @@ func InitTracer(environment string) (*trace.TracerProvider, error) {
 
 // InitMetrics initializes Prometheus metrics
 func InitMetrics() *Metrics {
-	return &Metrics{
+	m := &Metrics{
+		registry: prometheus.NewRegistry(),
 		httpRequestsTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "http_requests_total",
@@ -86,18 +87,44 @@ func InitMetrics() *Metrics {
 			[]string{"pool"},
 		),
 	}
+	m.registry.MustRegister(
+		m.httpRequestsTotal,
+		m.httpRequestDuration,
+		m.dbQueryDuration,
+		m.dbConnections,
+	)
+	return m
 }
 
 // Metrics holds Prometheus metrics
 type Metrics struct {
-	httpRequestsTotal   prometheus.CounterVec
-	httpRequestDuration prometheus.HistogramVec
-	dbQueryDuration     prometheus.HistogramVec
-	dbConnections       prometheus.GaugeVec
+	registry            *prometheus.Registry
+	httpRequestsTotal   *prometheus.CounterVec
+	httpRequestDuration *prometheus.HistogramVec
+	dbQueryDuration     *prometheus.HistogramVec
+	dbConnections       *prometheus.GaugeVec
+}
+
+// Handler exposes the registered metrics for Prometheus scraping.
+func (m *Metrics) Handler() http.Handler {
+	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
 }
 
 // Shutdown gracefully shuts down metrics
 func (m *Metrics) Shutdown(ctx context.Context) error {
 	// TODO: Implement shutdown logic if needed
 	return nil
+}
+
+// CheckResult is the status of a single dependency health check.
+type CheckResult struct {
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+// HealthCheckResult is the aggregated service health response.
+type HealthCheckResult struct {
+	Status    string                 `json:"status"`
+	Checks    map[string]CheckResult `json:"checks"`
+	Timestamp string                 `json:"timestamp"`
 }

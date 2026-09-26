@@ -1,13 +1,11 @@
 package middleware
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"github.com/udaykishore-resu/travelmind/internal/config"
 )
 
 // RequestLogger logs HTTP requests
@@ -93,31 +91,4 @@ func Recovery(logger *logrus.Logger) gin.HandlerFunc {
 			"error": "Internal Server Error",
 		})
 	})
-}
-
-// AuthRequired checks for valid JWT token
-func AuthRequired() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := c.GetHeader("Authorization")
-		if token == "" {
-			c.JSON(401, gin.H{"error": "Missing authorization token"})
-			c.Abort()
-			return
-		}
-		// TODO: Validate JWT token
-		c.Next()
-	}
-}
-
-// RoleRequired checks user role
-func RoleRequired(role string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userRole, exists := c.Get("user_role")
-		if !exists || userRole != role {
-			c.JSON(403, gin.H{"error": fmt.Sprintf("Requires %s role", role)})
-			c.Abort()
-			return
-		}
-		c.Next()
-	}
 }

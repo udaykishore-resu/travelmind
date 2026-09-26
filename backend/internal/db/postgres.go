@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -54,7 +55,7 @@ func (db *PostgresDB) QueryRow(ctx context.Context, sql string, args ...interfac
 }
 
 // Exec executes a command
-func (db *PostgresDB) Exec(ctx context.Context, sql string, args ...interface{}) (pgx.CommandTag, error) {
+func (db *PostgresDB) Exec(ctx context.Context, sql string, args ...interface{}) (pgconn.CommandTag, error) {
 	return db.pool.Exec(ctx, sql, args...)
 }
 
@@ -99,8 +100,8 @@ func (db *PostgresDB) GetHealth(ctx context.Context) (*HealthInfo, error) {
 	stat := db.pool.Stat()
 	return &HealthInfo{
 		Connected:            true,
-		PoolSize:             stat.ConstructingConnections(),
-		AvailableConnections: stat.AvailableConns(),
+		PoolSize:             stat.MaxConns(),
+		AvailableConnections: stat.MaxConns() - stat.AcquiredConns(),
 		WaitCount:            stat.EmptyAcquireCount(),
 		IdleConnections:      stat.IdleConns(),
 		TotalConnections:     stat.TotalConns(),
