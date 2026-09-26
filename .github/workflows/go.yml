@@ -33,6 +33,9 @@ jobs:
         fi
         echo "✓ All Go code is properly formatted"
 
+    - name: Tidy dependencies
+      run: go mod tidy
+
     - name: Get dependencies
       run: go get -t -v ./...
       continue-on-error: true
