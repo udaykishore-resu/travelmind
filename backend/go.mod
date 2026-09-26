@@ -1,4 +1,4 @@
-module github.com/revansystems/travelmind
+module github.com/udaykishore-resu/travelmind
 
 go 1.21
 

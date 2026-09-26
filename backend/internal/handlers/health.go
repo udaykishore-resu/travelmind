@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"github.com/revansystems/travelmind/internal/db"
-	"github.com/revansystems/travelmind/internal/observability"
+	"github.com/udaykishore-resu/travelmind/internal/db"
+	"github.com/udaykishore-resu/travelmind/internal/observability"
 )
 
 // HealthCheck returns health status of the service

@@ -59,57 +59,57 @@ TravelMind addresses critical travel agency challenges:
 
 ## System Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Client Layer                              │
-├──────────────┬──────────────┬──────────────┬────────────────┤
-│ Web Portal   │ Mobile App   │ Agent Portal │ Voice/Chat     │
-└──────┬───────┴──────┬───────┴──────┬───────┴────────┬───────┘
-       │              │              │                │
-       └──────────────┼──────────────┼────────────────┘
-                      │
-         ┌────────────▼────────────┐
-         │  API Gateway (Kong)     │
-         │  Auth, Rate Limit, TLS  │
-         └────────────┬────────────┘
-                      │
-        ┌─────────────┼─────────────┐
-        │             │             │
-┌───────▼────────┐ ┌─▼──────────┐ ┌─▼──────────────┐
-│ Booking        │ │ Advisor    │ │ AI Agents      │
-│ Orchestrator   │ │ Service    │ │ (Claude API)   │
-│ (Go)           │ │ (Go)       │ │                │
-└───────┬────────┘ └─┬──────────┘ └─┬──────────────┘
-        │            │              │
-        ├────────────┼──────────────┤
-        │            │              │
-┌───────▼──┐ ┌──────▼──┐ ┌────────▼────┐
-│Fraud     │ │Person-  │ │Supplier Mgmt│
-│Detection │ │alization│ │& Sync       │
-│(ML)      │ │ Engine  │ │             │
-└───────┬──┘ └──────┬──┘ └────────┬────┘
-        │           │             │
-        └───────────┼─────────────┘
-                    │
-        ┌───────────▼───────────┐
-        │  Event Streaming      │
-        │  (Kafka/Pub-Sub)      │
-        └───────────┬───────────┘
-                    │
-    ┌───────────────┼───────────────┐
-    │               │               │
-┌───▼──────┐ ┌──────▼───┐ ┌────────▼────┐
-│ Analytics│ │ Audit    │ │ Webhooks    │
-│ (BigQuery│ │ Log      │ │ (Callbacks) │
-│ /Cloud   │ │ (Cloud   │ │             │
-│ Logging) │ │ Logging) │ │             │
-└──────────┘ └──────────┘ └─────────────┘
-
-Database Layer:
-┌──────────────┬──────────────┬──────────────┐
-│ PostgreSQL   │ Firestore    │ Redis        │
-│ (Structured) │ (Denorm)     │ (Cache/Queues)
-└──────────────┴──────────────┴──────────────┘
+```mermaid
+graph TB
+    subgraph clients["🎯 Client Layer"]
+        web["💻 Web Portal"]
+        mobile["📱 Mobile App"]
+        agent["👔 Agent Portal"]
+        voice["🎤 Voice/Chat"]
+    end
+    
+    subgraph gateway["🔐 API Gateway"]
+        kong["Kong / Cloud Endpoints<br/>Auth • Rate Limit • TLS"]
+    end
+    
+    subgraph services["⚙️ Core Services"]
+        booking["📋 Booking<br/>Orchestrator"]
+        advisor["👨‍💼 Advisor<br/>Service"]
+        ai["🤖 AI Agent<br/>Service"]
+    end
+    
+    subgraph processors["🔍 Processors"]
+        fraud["🚨 Fraud<br/>Detection"]
+        personalization["🎯 Personalization<br/>Engine"]
+        supplier["🔄 Supplier<br/>Sync"]
+        payment["💳 Payment<br/>Orchestrator"]
+    end
+    
+    subgraph streaming["📡 Event Streaming"]
+        events["Kafka / Pub-Sub<br/>Event Bus"]
+    end
+    
+    subgraph storage["💾 Data Layer"]
+        postgres["🗄️ PostgreSQL<br/>Transactional"]
+        firestore["📄 Firestore<br/>Documents"]
+        redis["⚡ Redis<br/>Cache & Queue"]
+    end
+    
+    subgraph analytics["📊 Analytics & Audit"]
+        bigquery["📈 BigQuery<br/>Analytics"]
+        logging["📝 Cloud Logging<br/>Audit Trail"]
+        webhooks["🔗 Webhooks<br/>Callbacks"]
+    end
+    
+    clients --> kong
+    kong --> services
+    kong --> processors
+    services --> events
+    processors --> events
+    events --> analytics
+    services --> storage
+    processors --> storage
+    storage --> analytics
 ```
 
 ## Technology Stack
@@ -138,22 +138,28 @@ Database Layer:
 
 ### Prerequisites
 ```bash
-- Go 1.21+
-- Docker & Docker Compose
-- kubectl 1.28+
-- PostgreSQL 15+
-- Redis 7+
+Go 1.21+
+Docker & Docker Compose
+kubectl 1.28+
+PostgreSQL 15+
+Redis 7+
 ```
 
 ### Local Development
 ```bash
 # Clone and setup
-git clone <repo>
+git clone https://github.com/udaykishore-resu/travelmind.git
 cd travelmind
+
+# Setup environment
+cp .env.example .env
+# Edit .env with your configuration
+
+# Install dependencies and start services
 make dev-setup
 make dev-up
 
-# Run services
+# Run all services
 make run-services
 
 # Run tests
@@ -163,17 +169,31 @@ make test
 open http://localhost:8080/swagger
 ```
 
+### Verify Setup
+```bash
+# Check health status
+curl http://localhost:8080/health
+
+# View running containers
+docker-compose ps
+
+# Check logs
+docker-compose logs -f api-gateway
+```
+
 ### Production Deployment
 ```bash
-# Build and push images
+# Build and push container images
 make docker-build-all
 make docker-push
 
-# Deploy to Kubernetes
+# Deploy to Kubernetes cluster
 kubectl apply -f k8s/
+
+# Monitor rollout status
 kubectl rollout status deployment -n travelmind
 
-# Verify
+# Verify deployment
 kubectl port-forward svc/api-gateway 8080:8080 -n travelmind
 curl http://localhost:8080/health
 ```
@@ -183,44 +203,26 @@ curl http://localhost:8080/health
 ```
 travelmind/
 ├── backend/
-│   ├── services/
-│   │   ├── booking-orchestrator/    # Booking workflow engine
-│   │   ├── advisor-service/         # Advisor management & collaboration
-│   │   ├── ai-agent-service/        # LLM integration & orchestration
-│   │   ├── fraud-detection/         # ML-based risk scoring
-│   │   ├── personalization-engine/  # Recommendation & segmentation
-│   │   ├── supplier-sync/           # Rate/inventory synchronization
-│   │   ├── payment-orchestrator/    # PCI-compliant payment handling
-│   │   └── api-gateway/             # Main API entry point
-│   ├── cmd/                          # CLI tools & migrations
+│   ├── cmd/
+│   │   └── api-gateway/              # Main API entry point
 │   ├── internal/
-│   │   ├── models/                   # Domain models
-│   │   ├── repositories/             # Data access layer
-│   │   ├── services/                 # Business logic
-│   │   ├── middleware/               # Auth, logging, tracing
-│   │   └── config/                   # Configuration management
-│   ├── migrations/                   # Database schemas (sql-migrate)
-│   ├── tests/                        # Integration & unit tests
-│   ├── Dockerfile
-│   └── go.mod
-├── frontend/
-│   ├── web/                          # React web portal
-│   ├── mobile/                       # React Native mobile
-│   └── agent-dashboard/              # Advisor portal
-├── infra/
-│   ├── k8s/                          # Kubernetes manifests
-│   ├── terraform/                    # IaC for GCP/AWS
-│   ├── docker-compose.yml            # Local dev environment
-│   └── helm/                         # Helm charts for deployment
-├── docs/
-│   ├── architecture/                 # System design docs
-│   ├── api-specs/                    # OpenAPI specifications
-│   ├── db-schemas/                   # Database documentation
-│   └── deployment-guide.md
-├── .github/
-│   └── workflows/                    # CI/CD pipelines
-├── Makefile
-└── docker-compose.yml
+│   │   ├── config/                   # Configuration management
+│   │   ├── db/                        # Database layer
+│   │   ├── handlers/                  # HTTP handlers
+│   │   ├── middleware/                # Auth, logging, tracing
+│   │   ├── models/                    # Domain models
+│   │   └── observability/             # Metrics & tracing
+│   ├── migrations/                    # Database schemas
+│   ├── Dockerfile                     # Container build
+│   ├── go.mod                         # Go dependencies
+│   └── Makefile                       # Build automation
+├── k8s/
+│   ├── api-gateway-deployment.yaml    # K8s manifests
+│   └── ...
+├── docker-compose.yml                 # Local dev environment
+├── CONTRIBUTING.md                    # Developer guidelines
+├── ARCHITECTURE.md                    # Architecture decisions
+└── README.md
 ```
 
 ## Core Services Overview
@@ -348,23 +350,36 @@ Secure, multi-method payment handling.
 
 ### Local Development
 ```bash
+# Start all services locally
 docker-compose up -d
+
+# Verify services are healthy
+docker-compose ps
 ```
 
 ### Staging
 ```bash
+# Deploy to staging cluster
 kubectl apply -f k8s/staging/
+
+# Monitor deployment
+kubectl rollout status deployment -n travelmind
 ```
 
 ### Production
 ```bash
 # Canary deployment (20% traffic)
-kubectl apply -f k8s/production/
-# Monitor metrics for 30min
-# Promote: kubectl rollout status deployment/api-gateway
+kubectl apply -f k8s/production/canary/
+
+# Monitor metrics for 30min, then promote
+kubectl patch service api-gateway -n travelmind \
+  -p '{"spec":{"selector":{"version":"v1.0"}}}'
+
+# Rollback if needed
+kubectl rollout undo deployment/api-gateway -n travelmind
 ```
 
-## Roadmap (Q4 2026 - Q2 2027)
+## Roadmap
 
 - [x] Core booking orchestration
 - [x] AI agent integration
@@ -382,10 +397,14 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-Proprietary - Revan Systems Inc.
+This project is open source and available under the MIT License.
 
-## Support
+## Contact & Support
 
-- **Slack**: #travelmind-dev
-- **Email**: platform@revansystems.com
-- **Docs**: https://docs.travelmind.io
+- **GitHub Issues**: [Report bugs and feature requests](https://github.com/udaykishore-resu/travelmind/issues)
+- **GitHub Discussions**: [Ask questions and discuss ideas](https://github.com/udaykishore-resu/travelmind/discussions)
+- **Email**: udaykishoreresu2@gmail.com
+
+---
+
+Built with ❤️ by [Udaykishore Resu](https://github.com/udaykishore-resu)

@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/revansystems/travelmind/internal/config"
+	"github.com/udaykishore-resu/travelmind/internal/config"
 	"github.com/sirupsen/logrus"
 )
 

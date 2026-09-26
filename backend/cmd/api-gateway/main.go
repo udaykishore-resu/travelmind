@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/revansystems/travelmind/internal/config"
-	"github.com/revansystems/travelmind/internal/db"
-	"github.com/revansystems/travelmind/internal/handlers"
-	"github.com/revansystems/travelmind/internal/middleware"
-	"github.com/revansystems/travelmind/internal/observability"
+	"github.com/udaykishore-resu/travelmind/internal/config"
+	"github.com/udaykishore-resu/travelmind/internal/db"
+	"github.com/udaykishore-resu/travelmind/internal/handlers"
+	"github.com/udaykishore-resu/travelmind/internal/middleware"
+	"github.com/udaykishore-resu/travelmind/internal/observability"
 	"github.com/sirupsen/logrus"
 )
 

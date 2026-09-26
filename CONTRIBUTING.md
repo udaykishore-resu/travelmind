@@ -20,7 +20,7 @@ Be respectful, inclusive, and professional in all interactions with the communit
 
 1. Clone the repository
 ```bash
-git clone https://github.com/revansystems/travelmind.git
+git clone https://github.com/udaykishore-resu/travelmind.git
 cd travelmind
 ```
 
@@ -217,8 +217,7 @@ make k8s-deploy
 
 - Check existing issues and documentation
 - Ask in GitHub discussions
-- Reach out on Slack: #travelmind-dev
-- Email: platform@revansystems.com
+- Email: udaykishoreresu2@gmail.com
 
 ## Code Review Process
 
@@ -239,11 +238,11 @@ We follow [Semantic Versioning](https://semver.org/):
 
 ## Security
 
-If you find a security vulnerability, please email security@revansystems.com instead of using the issue tracker.
+If you find a security vulnerability, please email udaykishoreresu2@gmail.com instead of using the issue tracker.
 
 ## License
 
-By contributing to TravelMind, you agree that your contributions will be licensed under the same license as the project (Proprietary - Revan Systems Inc.).
+By contributing to TravelMind, you agree that your contributions will be licensed under the same license as the project (MIT License).
 
 ---
 
