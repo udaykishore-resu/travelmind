@@ -17,11 +17,11 @@ func RequestLogger(logger *logrus.Logger) gin.HandlerFunc {
 		c.Next()
 		duration := time.Since(startTime)
 		logger.WithFields(logrus.Fields{
-			"method":       c.Request.Method,
-			"path":         c.Request.URL.Path,
-			"status_code":  c.Writer.Status(),
-			"duration_ms":  duration.Milliseconds(),
-			"remote_addr":  c.ClientIP(),
+			"method":      c.Request.Method,
+			"path":        c.Request.URL.Path,
+			"status_code": c.Writer.Status(),
+			"duration_ms": duration.Milliseconds(),
+			"remote_addr": c.ClientIP(),
 		}).Info("HTTP Request")
 	}
 }
