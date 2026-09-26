@@ -1,0 +1,10 @@
+# Binaries and test outputs
+*.exe
+*.exe 
+*.dylib
+*.so
+*.test
+*.cout
+*.out
+coverage.*
+*.o (*.a
