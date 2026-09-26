@@ -403,7 +403,7 @@ This project is open source and available under the MIT License.
 
 - **GitHub Issues**: [Report bugs and feature requests](https://github.com/udaykishore-resu/travelmind/issues)
 - **GitHub Discussions**: [Ask questions and discuss ideas](https://github.com/udaykishore-resu/travelmind/discussions)
-- **Email**: udaykishoreresu2@gmail.com
+- **Email**: udaykishoresu2@gmail.com
 
 ---
 

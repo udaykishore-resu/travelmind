@@ -217,7 +217,7 @@ make k8s-deploy
 
 - Check existing issues and documentation
 - Ask in GitHub discussions
-- Email: udaykishoreresu2@gmail.com
+- Email: udaykishoresu2@gmail.com
 
 ## Code Review Process
 
@@ -238,7 +238,7 @@ We follow [Semantic Versioning](https://semver.org/):
 
 ## Security
 
-If you find a security vulnerability, please email udaykishoreresu2@gmail.com instead of using the issue tracker.
+If you find a security vulnerability, please email udaykishoresu2@gmail.com instead of using the issue tracker.
 
 ## License
 
